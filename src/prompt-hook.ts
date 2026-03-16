@@ -4,8 +4,13 @@ import { loadConfig } from './config';
 
 /**
  * Prompt-submit hook handler.
- * Reads user prompt from stdin, checks if it's very large or session is near capacity.
- * Exit 0 with no output = allow, output JSON warning = ask for confirmation.
+ *
+ * Claude Code's user-prompt-submit-hook sends JSON on stdin with the shape:
+ *   { hook_event_name: "UserPromptSubmit", session_id: string, message: string, cwd: string }
+ *
+ * We also handle plain-text stdin and the alternative { input } shape for resilience.
+ *
+ * Exit 0 with no output = allow. Output JSON = feedback to user.
  */
 async function main() {
   let raw = '';
@@ -13,17 +18,19 @@ async function main() {
     raw += chunk;
   }
 
-  let hookInput: { input?: string; session_id?: string; cwd?: string };
+  let prompt = raw;
+  let sessionId = 'unknown';
+  let cwd = process.cwd();
+
   try {
-    hookInput = JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Support multiple possible field names for the prompt content
+    prompt = parsed.message || parsed.input || parsed.prompt || raw;
+    sessionId = parsed.session_id || 'unknown';
+    cwd = parsed.cwd || process.cwd();
   } catch {
     // Not JSON — treat raw as the prompt itself
-    hookInput = { input: raw };
   }
-
-  const prompt = hookInput.input || raw;
-  const sessionId = hookInput.session_id || 'unknown';
-  const cwd = hookInput.cwd || process.cwd();
 
   const config = loadConfig(cwd);
   const promptTokens = estimateTokens(Buffer.byteLength(prompt, 'utf-8'));

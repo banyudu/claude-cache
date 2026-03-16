@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import { analyze } from '../analyzer';
 import { loadConfig } from '../config';
-import { loadState, addOperation, saveState, resetState } from '../tracker';
+import { addOperation } from '../tracker';
 import type { HookInput } from '../types';
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -13,10 +13,10 @@ vi.mock('node:fs', async (importOriginal) => {
     readFileSync: vi.fn(actual.readFileSync),
     writeFileSync: vi.fn(actual.writeFileSync),
     unlinkSync: vi.fn(actual.unlinkSync),
+    renameSync: vi.fn(actual.renameSync),
+    readdirSync: vi.fn(actual.readdirSync),
   };
 });
-
-const SESSION = 'integration-test';
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -31,7 +31,7 @@ beforeEach(() => {
 
 function makeInput(tool: string, toolInput: Record<string, unknown>): HookInput {
   return {
-    session_id: SESSION,
+    session_id: 'integration-test',
     hook_event_name: 'PreToolUse',
     tool_name: tool,
     tool_input: toolInput,
@@ -74,10 +74,18 @@ describe('integration: full pipeline', () => {
     expect(estimate.isClaudeMd).toBe(true);
   });
 
-  it('tracks cumulative tokens across operations', () => {
-    vi.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
-    vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+  it('Edit on CLAUDE.md estimates full file size', () => {
+    vi.spyOn(fs, 'statSync').mockReturnValue({ size: 4000 } as fs.Stats);
+    const config = loadConfig('/tmp');
+    const estimate = analyze(
+      makeInput('Edit', { file_path: '/project/CLAUDE.md', new_string: 'tiny' }),
+      config,
+    );
+    expect(estimate.isClaudeMd).toBe(true);
+    expect(estimate.estimatedTokens).toBe(1000); // full file: 4000/4
+  });
 
+  it('tracks cumulative tokens across operations', () => {
     let state = { totalEstimatedTokens: 0, operationCount: 0, operations: [] as any[] };
     state = addOperation(state, { tool: 'Read', file: '/tmp/a.ts', estimatedTokens: 10000 });
     state = addOperation(state, { tool: 'Read', file: '/tmp/b.ts', estimatedTokens: 20000 });
@@ -85,5 +93,16 @@ describe('integration: full pipeline', () => {
 
     expect(state.totalEstimatedTokens).toBe(35000);
     expect(state.operationCount).toBe(3);
+  });
+
+  it('Bash with multiple cat files sums token estimates', () => {
+    vi.spyOn(fs, 'statSync').mockReturnValue({ size: 80000 } as fs.Stats);
+    const config = loadConfig('/tmp');
+    const estimate = analyze(
+      makeInput('Bash', { command: 'cat /tmp/a.log /tmp/b.log /tmp/c.log' }),
+      config,
+    );
+    // 3 files * 80000 bytes / 4 = 60000 tokens
+    expect(estimate.estimatedTokens).toBe(60000);
   });
 });

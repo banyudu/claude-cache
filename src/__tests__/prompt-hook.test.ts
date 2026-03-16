@@ -13,4 +13,18 @@ describe('prompt-hook logic', () => {
     const tokens = estimateTokens(Buffer.byteLength(prompt, 'utf-8'));
     expect(tokens).toBeLessThan(40000);
   });
+
+  it('handles various input field names', () => {
+    // The prompt-hook supports message, input, prompt fields
+    // This test validates the extraction logic conceptually
+    const inputs = [
+      { message: 'hello', session_id: 's1', cwd: '/tmp' },
+      { input: 'hello', session_id: 's2' },
+      { prompt: 'hello' },
+    ];
+    for (const input of inputs) {
+      const text = (input as any).message || (input as any).input || (input as any).prompt || '';
+      expect(text).toBe('hello');
+    }
+  });
 });

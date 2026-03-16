@@ -1,6 +1,6 @@
 import { analyze } from './analyzer';
 import { loadConfig } from './config';
-import { loadState, saveState, addOperation, resetState, formatStatus } from './tracker';
+import { loadState, saveState, addOperation, resetState, formatStatus, pruneStaleStates } from './tracker';
 import type { HookInput, HookOutput, Decision } from './types';
 
 const MAX_STDIN_SIZE = 1024 * 1024;
@@ -52,6 +52,9 @@ async function main() {
       process.exit(0);
     }
   }
+
+  // Opportunistically prune stale state files (non-blocking, best-effort)
+  try { pruneStaleStates(); } catch { /* ignore */ }
 
   const config = loadConfig(input.cwd);
   const estimate = analyze(input, config);
