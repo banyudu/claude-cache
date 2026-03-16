@@ -1,0 +1,20 @@
+# Default thresholds for cache impact analysis
+# Tokens are estimated as bytes / 4
+
+thresholds:
+  # Single operation: warn if estimated tokens exceed this
+  warnTokens: 40000        # ~160KB
+  # Single operation: block if estimated tokens exceed this
+  blockTokens: 400000      # ~1.6MB
+  # Cumulative session: warn on all subsequent ops after this
+  warnCumulativeTokens: 500000
+
+# Always ask before modifying CLAUDE.md files (system prompt = cache prefix)
+protectClaudeMd: true
+
+# Per-tool overrides (optional)
+# tools:
+#   Read:
+#     warnTokens: 80000
+#   Write:
+#     warnTokens: 20000

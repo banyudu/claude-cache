@@ -1,0 +1,52 @@
+{
+  "name": "claude-cache",
+  "version": "0.1.0",
+  "description": "Cache-aware cost guard for Claude Code — warns or blocks operations that cause expensive prompt cache invalidation",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "license": "MIT",
+  "author": "banyudu",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:banyudu/claude-cache.git"
+  },
+  "homepage": "https://github.com/banyudu/claude-cache",
+  "keywords": [
+    "claude-code",
+    "claude-code-plugin",
+    "cache",
+    "cost",
+    "token"
+  ],
+  "files": [
+    "dist",
+    ".claude-plugin",
+    "hooks",
+    "commands",
+    "config",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "eval": "node dist/index.cjs",
+    "eval:prompt": "node dist/prompt-hook.cjs",
+    "prepublishOnly": "pnpm run build && pnpm run test"
+  },
+  "dependencies": {
+    "yaml": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "cache-control",
+  "version": "0.1.0",
+  "description": "Cache-aware cost guard for Claude Code — warns or blocks operations that cause expensive prompt cache invalidation",
+  "author": {
+    "name": "banyudu"
+  }
+}
