@@ -37,24 +37,18 @@ async function main() {
 
   // Check if prompt itself is very large
   if (promptTokens >= config.thresholds.warnTokens) {
-    const output = {
-      decision: 'ask',
-      message: `[cache-control] Your prompt is ~${promptTokens.toLocaleString()} tokens. Large prompts shift cache boundaries and increase costs. Continue?`,
-    };
-    process.stdout.write(JSON.stringify(output));
-    process.exit(0);
+    const reason = `[cache-control] Your prompt is ~${promptTokens.toLocaleString()} tokens. Large prompts shift cache boundaries and increase costs. Continue?`;
+    process.stderr.write(reason + '\n');
+    process.exit(2);
   }
 
   // Check cumulative session state
   const state = loadState(sessionId);
   if (state.totalEstimatedTokens + promptTokens >= config.thresholds.warnCumulativeTokens) {
     const total = state.totalEstimatedTokens + promptTokens;
-    const output = {
-      decision: 'ask',
-      message: `[cache-control] Session cumulative tokens (~${total.toLocaleString()}) is high. Consider starting a new conversation to reduce cache rebuild costs.`,
-    };
-    process.stdout.write(JSON.stringify(output));
-    process.exit(0);
+    const reason = `[cache-control] Session cumulative tokens (~${total.toLocaleString()}) is high. Consider starting a new conversation to reduce cache rebuild costs.`;
+    process.stderr.write(reason + '\n');
+    process.exit(2);
   }
 
   // Allow — silent exit

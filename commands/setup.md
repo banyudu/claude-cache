@@ -1,19 +1,16 @@
 ---
 name: setup
-description: Configure the prompt-submit hook for prompt-level cache monitoring
+description: Show setup status for cache-control plugin
 ---
 
-To enable prompt-level cache monitoring, add the following to your `~/.claude/settings.json`:
+The cache-control plugin is fully configured via the plugin's `hooks.json`. No manual setup is required.
 
-```json
-{
-  "user-prompt-submit-hook": "node /path/to/claude-cache-control/dist/prompt-hook.cjs"
-}
-```
+Both hooks are automatically registered when the plugin is enabled:
+- **PreToolUse** — intercepts Read, Write, Edit, and Bash tool calls to estimate cache impact
+- **UserPromptSubmit** — warns when prompts are very large or session cumulative usage is high
 
-Replace `/path/to/claude-cache-control` with the actual path to this plugin's installation directory.
+To customize thresholds, create a config file:
+- **User-level**: `~/.claude/cache-control.yaml`
+- **Project-level**: `.claude/cache-control.yaml`
 
-This hook will:
-- Warn when you're about to send a very large prompt (>40K tokens)
-- Warn when your session's cumulative token usage is approaching the threshold
-- Suggest starting a new conversation to reduce cache rebuild costs
+See `/config` for configuration options.

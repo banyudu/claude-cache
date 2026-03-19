@@ -1,43 +1,12 @@
 {
-  "description": "Cache-aware cost guard — intercepts tool calls that may cause expensive cache invalidation",
+  "description": "Cache-aware cost guard — warns before submitting prompts that may trigger expensive cache rewrites",
   "hooks": {
-    "PreToolUse": [
+    "UserPromptSubmit": [
       {
-        "matcher": "Read",
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/index.cjs",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/index.cjs",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/index.cjs",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/index.cjs",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/prompt-hook.cjs",
             "timeout": 5
           }
         ]
