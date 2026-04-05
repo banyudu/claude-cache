@@ -1,8 +1,19 @@
 {
-  "title": "Cache Cost Guard",
-  "shortDescription": "Warns or blocks operations that cause expensive prompt cache invalidation",
-  "tags": ["cost", "cache", "optimization", "token-usage"],
-  "category": "developer-tools",
-  "sourceUrl": "https://github.com/banyudu/claude-cache",
-  "license": "MIT"
+  "name": "claude-cache",
+  "description": "Cache-aware cost guard for Claude Code",
+  "owner": {
+    "name": "banyudu"
+  },
+  "plugins": [
+    {
+      "name": "cache",
+      "description": "Warns or blocks operations that cause expensive prompt cache invalidation",
+      "version": "0.1.0",
+      "author": {
+        "name": "banyudu"
+      },
+      "source": "./",
+      "category": "developer-tools"
+    }
+  ]
 }
