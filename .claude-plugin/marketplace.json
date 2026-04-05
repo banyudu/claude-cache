@@ -1,0 +1,8 @@
+{
+  "title": "Cache Cost Guard",
+  "shortDescription": "Warns or blocks operations that cause expensive prompt cache invalidation",
+  "tags": ["cost", "cache", "optimization", "token-usage"],
+  "category": "developer-tools",
+  "sourceUrl": "https://github.com/banyudu/claude-cache",
+  "license": "MIT"
+}
