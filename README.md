@@ -66,26 +66,31 @@ Config is evaluated in layers with **project > user > default** priority:
 
 ### Default thresholds
 
-| Threshold | Default | Description |
-|-----------|---------|-------------|
-| `warnTokens` | 40,000 (~160KB) | Ask before proceeding |
-| `blockTokens` | 400,000 (~1.6MB) | Deny the operation |
-| `warnCumulativeTokens` | 500,000 | Warn on all subsequent ops |
+Thresholds can be **fixed token counts** or **percentages of `contextSize`**.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `contextSize` | 200,000 | Context window size (Sonnet/Opus: 200000, 1M variants: 1000000) |
+| `warnTokens` | `"20%"` | Ask before proceeding |
+| `blockTokens` | `"50%"` | Deny the operation |
+| `warnCumulativeTokens` | `"100%"` | Warn on all subsequent ops |
 | `protectClaudeMd` | `true` | Always ask before modifying CLAUDE.md |
 
 ### Config example
 
 ```yaml
+# For Opus-1M / Sonnet-1M
+contextSize: 1000000
 thresholds:
-  warnTokens: 80000
-  blockTokens: 800000
-  warnCumulativeTokens: 1000000
+  warnTokens: "20%"        # 200,000 tokens
+  blockTokens: "50%"       # 500,000 tokens
+  warnCumulativeTokens: "100%"
 protectClaudeMd: true
 tools:
   Read:
-    warnTokens: 100000
+    warnTokens: "30%"
   Write:
-    warnTokens: 20000
+    warnTokens: 20000       # fixed count also works
 ```
 
 ## Slash commands

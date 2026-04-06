@@ -1,20 +1,25 @@
 # Default thresholds for cache impact analysis
 # Tokens are estimated as bytes / 4
 
+# Context window size in tokens (set to match your model)
+# Sonnet/Opus: 200000, Sonnet-1M/Opus-1M: 1000000
+contextSize: 200000
+
 thresholds:
+  # Values can be fixed numbers or percentages of contextSize
   # Single operation: warn if estimated tokens exceed this
-  warnTokens: 40000        # ~160KB
+  warnTokens: "20%"
   # Single operation: block if estimated tokens exceed this
-  blockTokens: 400000      # ~1.6MB
+  blockTokens: "50%"
   # Cumulative session: warn on all subsequent ops after this
-  warnCumulativeTokens: 500000
+  warnCumulativeTokens: "100%"
 
 # Always ask before modifying CLAUDE.md files (system prompt = cache prefix)
 protectClaudeMd: true
 
-# Per-tool overrides (optional)
+# Per-tool overrides (optional, also support % or fixed)
 # tools:
 #   Read:
-#     warnTokens: 80000
+#     warnTokens: "30%"
 #   Write:
 #     warnTokens: 20000

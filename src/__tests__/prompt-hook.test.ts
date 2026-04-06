@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import { estimateTokens } from '../estimator';
+import { resolveThreshold } from '../config';
+
+describe('resolveThreshold', () => {
+  it('returns fixed numbers as-is', () => {
+    expect(resolveThreshold(40000, 200000)).toBe(40000);
+  });
+
+  it('resolves percentage of contextSize', () => {
+    expect(resolveThreshold('20%', 200000)).toBe(40000);
+    expect(resolveThreshold('50%', 1000000)).toBe(500000);
+    expect(resolveThreshold('100%', 200000)).toBe(200000);
+  });
+
+  it('parses numeric strings as fixed values', () => {
+    expect(resolveThreshold('80000', 200000)).toBe(80000);
+  });
+});
 
 describe('prompt-hook logic', () => {
   it('estimates prompt tokens correctly', () => {
