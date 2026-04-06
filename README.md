@@ -28,7 +28,7 @@ The result: **visibility into cache costs before they happen**, with configurabl
 Two commands inside Claude Code:
 
 ```
-/plugin marketplace add banyudu/claude-cache
+/plugin marketplace install banyudu/claude-cache
 /plugin install cache@claude-cache
 ```
 
