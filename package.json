@@ -1,6 +1,6 @@
 {
   "name": "claude-cache",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cache-aware cost guard for Claude Code — warns or blocks operations that cause expensive prompt cache invalidation",
   "type": "module",
   "main": "dist/index.cjs",
@@ -48,6 +48,8 @@
     "vitest": "^1.6.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
