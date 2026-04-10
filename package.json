@@ -36,7 +36,8 @@
     "eval": "node dist/index.cjs",
     "eval:prompt": "node dist/prompt-hook.cjs",
     "sync-plugin-version": "node scripts/sync-plugin-version.cjs",
-    "prepublishOnly": "pnpm run sync-plugin-version && pnpm run build && pnpm run test && chmod +x dist/*.cjs"
+    "version": "pnpm run sync-plugin-version && git add .claude-plugin/plugin.json .claude-plugin/marketplace.json",
+    "prepublishOnly": "pnpm run build && pnpm run test && chmod +x dist/*.cjs"
   },
   "dependencies": {
     "yaml": "^2.4.0"
