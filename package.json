@@ -28,7 +28,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && chmod +x dist/*.cjs",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -36,7 +36,7 @@
     "eval": "node dist/index.cjs",
     "eval:prompt": "node dist/prompt-hook.cjs",
     "sync-plugin-version": "node scripts/sync-plugin-version.cjs",
-    "prepublishOnly": "pnpm run sync-plugin-version && pnpm run build && pnpm run test"
+    "prepublishOnly": "pnpm run sync-plugin-version && pnpm run build && pnpm run test && chmod +x dist/*.cjs"
   },
   "dependencies": {
     "yaml": "^2.4.0"
