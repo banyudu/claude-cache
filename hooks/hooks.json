@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/dist/prompt-hook.cjs",
+            "command": "${CLAUDE_PLUGIN_ROOT}/dist/prompt-hook.cjs",
             "timeout": 5
           }
         ]

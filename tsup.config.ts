@@ -8,4 +8,5 @@ export default defineConfig({
   clean: true,
   splitting: false,
   noExternal: ['yaml'],
+  banner: { js: '#!/usr/bin/env node' },
 });
