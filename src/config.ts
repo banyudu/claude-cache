@@ -13,6 +13,11 @@ const DEFAULTS: CacheControlConfig = {
     warnCumulativeTokens: 200000,
   },
   protectClaudeMd: true,
+  warm: {
+    enabled: true,
+    intervalSeconds: 3000,
+    maxIdleHours: 5,
+  },
 };
 
 const DEFAULT_RAW_THRESHOLDS = {
@@ -80,10 +85,12 @@ export function loadConfig(cwd: string): CacheControlConfig {
   // Merge other fields
   let protectClaudeMd = DEFAULTS.protectClaudeMd;
   let tools = DEFAULTS.tools;
+  let warm = { ...DEFAULTS.warm };
   for (const layer of layers) {
     if (layer.protectClaudeMd != null) protectClaudeMd = layer.protectClaudeMd;
     if (layer.tools) tools = { ...tools, ...layer.tools };
+    if (layer.warm) warm = { ...warm, ...layer.warm };
   }
 
-  return { contextSize, thresholds, protectClaudeMd, tools };
+  return { contextSize, thresholds, protectClaudeMd, tools, warm };
 }

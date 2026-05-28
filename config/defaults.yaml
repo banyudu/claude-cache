@@ -23,3 +23,23 @@ protectClaudeMd: true
 #     warnTokens: "30%"
 #   Write:
 #     warnTokens: 20000
+
+# Auto-warm the prompt cache during idle gaps so the next prompt is a cache hit
+# instead of a full rebuild. The assistant re-arms a ScheduleWakeup timer at the
+# end of every reply — real turns already refresh the cache, so a ping only
+# fires after the configured idle interval.
+warm:
+  enabled: true            # set false to disable
+  intervalSeconds: 3000    # ~50 min — stay inside the 1h extended cache TTL
+  # Cap on consecutive idle hours before we stop re-arming. Any real user turn resets the counter.
+  #
+  # The pure-arithmetic ceiling (assuming the user ALWAYS returns) is ~15.8h, derived from
+  # cache-read 0.1x and cache-write 2.0x: 19 pings × 0.1 cost ≈ one 2.0x rewrite.
+  # But if the user closes the window, every ping is wasted with zero savings, so the real
+  # optimum depends on abandonment probability. Modelling p_abandon=20-50% with mean
+  # return time 1-2h, the per-hour return hazard drops below the 6.3% break-even at ~2-6h.
+  #
+  # 5 sits in the middle of that band: tolerates a quick lunch / errand without overshooting
+  # if the session has actually been closed. Raise to 10-15 if you almost never abandon a
+  # session; lower to 1-2 if you often start sessions you do not finish.
+  maxIdleHours: 5
