@@ -6866,14 +6866,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs3 = this.flowScalar(this.type);
+              const fs2 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs3, sep: [] });
+                map.items.push({ start, key: fs2, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs3);
+                this.stack.push(fs2);
               } else {
-                Object.assign(it, { key: fs3, sep: [] });
+                Object.assign(it, { key: fs2, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -7001,13 +7001,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs3 = this.flowScalar(this.type);
+              const fs2 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs3, sep: [] });
+                fc.items.push({ start: [], key: fs2, sep: [] });
               else if (it.sep)
-                this.stack.push(fs3);
+                this.stack.push(fs2);
               else
-                Object.assign(it, { key: fs3, sep: [] });
+                Object.assign(it, { key: fs2, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -7315,32 +7315,8 @@ var require_dist = __commonJS({
   }
 });
 
-// src/estimator.ts
-function estimateTokens(bytes) {
-  return Math.ceil(bytes / 4);
-}
-
-// src/tracker.ts
-var fs = __toESM(require("fs"), 1);
-var crypto = __toESM(require("crypto"), 1);
-var STATE_DIR = "/tmp";
-var STATE_PREFIX = "claude-cache-control-";
-function stateFilePath(sessionId) {
-  const hash = crypto.createHash("sha256").update(sessionId).digest("hex").slice(0, 16);
-  return `${STATE_DIR}/${STATE_PREFIX}${hash}.json`;
-}
-function loadState(sessionId) {
-  const file = stateFilePath(sessionId);
-  try {
-    const raw = fs.readFileSync(file, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return { totalEstimatedTokens: 0, operationCount: 0, operations: [] };
-  }
-}
-
 // src/config.ts
-var fs2 = __toESM(require("fs"), 1);
+var fs = __toESM(require("fs"), 1);
 var path = __toESM(require("path"), 1);
 var import_yaml = __toESM(require_dist(), 1);
 var DEFAULT_CONTEXT_SIZE = 2e5;
@@ -7376,7 +7352,7 @@ function resolveThreshold(value, contextSize) {
 }
 function tryLoadYaml(filePath) {
   try {
-    const raw = fs2.readFileSync(filePath, "utf-8");
+    const raw = fs.readFileSync(filePath, "utf-8");
     return (0, import_yaml.parse)(raw);
   } catch {
     return null;
@@ -7417,40 +7393,64 @@ function loadConfig(cwd) {
   return { contextSize, thresholds, protectClaudeMd, tools, warm };
 }
 
-// src/prompt-hook.ts
-var WARM_PING_SENTINEL = "__cache-warm-ping__";
+// src/session-start-hook.ts
+var PING = "__cache-warm-ping__";
+function buildInstruction(intervalSeconds, maxIdleHours) {
+  const intervalMin = Math.round(intervalSeconds / 60);
+  const maxConsecutivePings = Math.max(
+    1,
+    Math.floor(maxIdleHours * 3600 / intervalSeconds)
+  );
+  return [
+    `[claude-cache] Prompt-cache warming is ENABLED for this session.`,
+    ``,
+    `Goal: prevent the Anthropic prompt cache from expiring during idle gaps, so the user's next real prompt is a cache hit instead of a full rebuild. A real assistant turn already refreshes the cache, so we only need a ping when the session has actually gone silent.`,
+    ``,
+    `Mechanism \u2014 re-arm an idle timer at the end of every one of your replies in this session:`,
+    ``,
+    `  Call \`ScheduleWakeup\` with:`,
+    `    delaySeconds: ${intervalSeconds}`,
+    `    prompt: ${JSON.stringify(PING)}`,
+    `    reason: "claude-cache: idle-timer refresh"`,
+    ``,
+    `Each new call replaces the previous pending wakeup, so the timer only ever fires after ~${intervalMin} min of silence. If the user keeps chatting, no ping is ever sent.`,
+    ``,
+    `When you DO receive a user message whose entire content is the literal sentinel ${JSON.stringify(PING)} (the timer fired \u2014 true idle), treat it as a heartbeat, not a request:`,
+    `  - Do not analyse, do not read files, do not call any tool other than \`ScheduleWakeup\`.`,
+    `  - Reply with the single token \`ok\`.`,
+    `  - Re-arm by calling \`ScheduleWakeup\` again with the same parameters.`,
+    ``,
+    `Idle cap: stop re-arming once the run of consecutive ${JSON.stringify(PING)} pings (with no real user message between them) would reach ${maxConsecutivePings} \u2014 that corresponds to ~${maxIdleHours} hour(s) of pure idle. To check on each reply: count the trailing ping messages in the transcript since the last real user input. ANY real user message resets that counter \u2014 go back to re-arming normally on the next reply.`,
+    ``,
+    `Also stop if the user says anything like "stop warming", "disable warm", "/warm off", or seems annoyed by the pings. To stop, simply do not call \`ScheduleWakeup\` at the end of that reply \u2014 omitting the call ends the loop.`,
+    ``,
+    `Do this silently: do not announce the wakeup re-arming to the user on every turn. It is bookkeeping.`
+  ].join("\n");
+}
 async function main() {
   let raw = "";
   for await (const chunk of process.stdin) {
     raw += chunk;
   }
-  let prompt = raw;
-  let sessionId = "unknown";
   let cwd = process.cwd();
   try {
     const parsed = JSON.parse(raw);
-    prompt = parsed.message || parsed.input || parsed.prompt || raw;
-    sessionId = parsed.session_id || "unknown";
-    cwd = parsed.cwd || process.cwd();
+    if (parsed && typeof parsed.cwd === "string") cwd = parsed.cwd;
   } catch {
   }
-  if (prompt.trim() === WARM_PING_SENTINEL) {
+  const config = loadConfig(cwd);
+  if (!config.warm.enabled) {
     process.exit(0);
   }
-  const config = loadConfig(cwd);
-  const promptTokens = estimateTokens(Buffer.byteLength(prompt, "utf-8"));
-  if (promptTokens >= config.thresholds.warnTokens) {
-    const reason = `[cache-control] Your prompt is ~${promptTokens.toLocaleString()} tokens. Large prompts shift cache boundaries and increase costs. Continue?`;
-    process.stderr.write(reason + "\n");
-    process.exit(2);
-  }
-  const state = loadState(sessionId);
-  if (state.totalEstimatedTokens + promptTokens >= config.thresholds.warnCumulativeTokens) {
-    const total = state.totalEstimatedTokens + promptTokens;
-    const reason = `[cache-control] Session cumulative tokens (~${total.toLocaleString()}) is high. Consider starting a new conversation to reduce cache rebuild costs.`;
-    process.stderr.write(reason + "\n");
-    process.exit(2);
-  }
+  const additionalContext = buildInstruction(config.warm.intervalSeconds, config.warm.maxIdleHours);
+  process.stdout.write(
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "SessionStart",
+        additionalContext
+      }
+    })
+  );
   process.exit(0);
 }
 main().catch(() => process.exit(0));

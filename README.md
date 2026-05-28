@@ -93,6 +93,25 @@ tools:
     warnTokens: 20000       # fixed count also works
 ```
 
+## Auto-warm the cache during idle gaps
+
+Long idle periods inside an active session let the Anthropic prompt cache expire — so when you finally come back, the next prompt pays for a full cache rebuild. Cache Control auto-prevents this:
+
+- A `SessionStart` hook instructs the assistant to re-arm a `ScheduleWakeup` timer at the end of every reply.
+- Each re-arm replaces the previous pending wakeup, so while you're actively chatting the timer never fires (real turns already refresh the cache).
+- If the session goes silent past the configured interval (~50 min by default, inside the 1h extended cache TTL), the wakeup fires, the assistant replies `ok`, re-arms, and the cache stays warm.
+
+Enabled by default. To disable, set `warm.enabled: false` in `cache-control.yaml`, or say `/warm off` mid-session.
+
+```yaml
+warm:
+  enabled: true
+  intervalSeconds: 3000    # ~50 min
+  maxIdleHours: 5          # stop after N hours of consecutive idle (any real turn resets)
+```
+
+The default `maxIdleHours: 5` balances two cases. Pure cache arithmetic (cache-read 0.1× vs cache-write 2.0×) puts the ceiling at ~15.8h *if the user always returns*, but every ping is wasted if the user actually closed the window. Modelling realistic abandonment (20–50%) with mean return time 1–2h, the per-hour return hazard drops below break-even at 2–6h. 5h sits in that band — tolerant of a long break, not wasteful on abandoned sessions. Raise toward 15 if you almost never abandon a session; drop toward 1–2 if you often start sessions you don't finish.
+
 ## Slash commands
 
 | Command | Description |
@@ -101,6 +120,7 @@ tools:
 | `/config` | View or edit thresholds |
 | `/status` | Show session cache impact stats |
 | `/reset` | Reset session tracking data |
+| `/warm` | View or toggle auto-warming |
 
 ## License
 

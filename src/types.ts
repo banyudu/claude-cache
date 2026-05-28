@@ -27,11 +27,18 @@ export interface ResolvedThresholds {
   warnCumulativeTokens: number;
 }
 
+export interface WarmConfig {
+  enabled: boolean;
+  intervalSeconds: number;
+  maxIdleHours: number;
+}
+
 export interface CacheControlConfig {
   contextSize: number;
   thresholds: ResolvedThresholds;
   protectClaudeMd: boolean;
   tools?: Record<string, { warnTokens?: TokenThreshold; blockTokens?: TokenThreshold }>;
+  warm: WarmConfig;
 }
 
 export interface RawCacheControlConfig {
@@ -39,4 +46,5 @@ export interface RawCacheControlConfig {
   thresholds?: Partial<RawThresholds>;
   protectClaudeMd?: boolean;
   tools?: Record<string, { warnTokens?: TokenThreshold; blockTokens?: TokenThreshold }>;
+  warm?: Partial<WarmConfig>;
 }

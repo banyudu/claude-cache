@@ -2,6 +2,8 @@ import { estimateTokens } from './estimator';
 import { loadState } from './tracker';
 import { loadConfig } from './config';
 
+const WARM_PING_SENTINEL = '__cache-warm-ping__';
+
 /**
  * Prompt-submit hook handler.
  *
@@ -30,6 +32,12 @@ async function main() {
     cwd = parsed.cwd || process.cwd();
   } catch {
     // Not JSON — treat raw as the prompt itself
+  }
+
+  // Cache-warm heartbeats from the auto-warm loop are bookkeeping, not user input —
+  // don't count tokens or surface warnings.
+  if (prompt.trim() === WARM_PING_SENTINEL) {
+    process.exit(0);
   }
 
   const config = loadConfig(cwd);
