@@ -1,6 +1,6 @@
 {
   "name": "cache",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Cache-aware cost guard for Claude Code — warns before submitting prompts that may trigger expensive cache rewrites",
   "author": {
     "name": "banyudu"
