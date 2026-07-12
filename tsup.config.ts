@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/prompt-hook.ts', 'src/session-start-hook.ts'],
+  entry: ['src/prompt-hook.ts', 'src/session-start-hook.ts', 'src/stop-hook.ts'],
   format: ['cjs'],
   target: 'node18',
   outDir: 'dist',

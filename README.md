@@ -97,9 +97,9 @@ tools:
 
 Long idle periods inside an active session let the Anthropic prompt cache expire — so when you finally come back, the next prompt pays for a full cache rebuild. Cache Control auto-prevents this:
 
-- A `SessionStart` hook instructs the assistant to re-arm a `ScheduleWakeup` timer at the end of every reply.
-- Each re-arm replaces the previous pending wakeup, so while you're actively chatting the timer never fires (real turns already refresh the cache).
-- If the session goes silent past the configured interval (~50 min by default, inside the 1h extended cache TTL), the wakeup fires, the assistant replies `ok`, re-arms, and the cache stays warm.
+- A `Stop` hook re-arms a `ScheduleWakeup` timer **after** each reply is delivered. Because the turn-terminating `ScheduleWakeup` call happens in a separate, isolated micro-turn — never inside the reply — it can't swallow an answer. This is model-agnostic: it works even for fast models (e.g. Fable) that used to arm before answering and lose the reply.
+- While you're actively chatting a wakeup is already pending, so the hook stays silent — no extra turns. (Set `rearmEveryTurn: true` to instead slide the deadline forward every turn, so a ping can never fire mid-activity, at the cost of one tiny arming micro-turn per turn.)
+- If the session goes silent past the configured interval (~50 min by default, inside the 1h extended cache TTL), the wakeup fires, the assistant replies `ok`, the hook re-arms, and the cache stays warm.
 
 Enabled by default. To disable, set `warm.enabled: false` in `cache-control.yaml`, or say `/warm off` mid-session.
 
@@ -108,6 +108,8 @@ warm:
   enabled: true
   intervalSeconds: 3000    # ~50 min
   maxIdleHours: 5          # stop after N hours of consecutive idle (any real turn resets)
+  rearmEveryTurn: false    # true = slide the deadline every turn (extra micro-turn) vs. arm-once
+  excludeModels: []        # optional manual override, e.g. ["fable"] — rarely needed now
 ```
 
 The default `maxIdleHours: 5` balances two cases. Pure cache arithmetic (cache-read 0.1× vs cache-write 2.0×) puts the ceiling at ~15.8h *if the user always returns*, but every ping is wasted if the user actually closed the window. Modelling realistic abandonment (20–50%) with mean return time 1–2h, the per-hour return hazard drops below break-even at 2–6h. 5h sits in that band — tolerant of a long break, not wasteful on abandoned sessions. Raise toward 15 if you almost never abandon a session; drop toward 1–2 if you often start sessions you don't finish.

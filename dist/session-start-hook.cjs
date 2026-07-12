@@ -6866,14 +6866,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs2 = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs2, sep: [] });
+                map.items.push({ start, key: fs3, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs2);
+                this.stack.push(fs3);
               } else {
-                Object.assign(it, { key: fs2, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -7001,13 +7001,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs2 = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs2, sep: [] });
+                fc.items.push({ start: [], key: fs3, sep: [] });
               else if (it.sep)
-                this.stack.push(fs2);
+                this.stack.push(fs3);
               else
-                Object.assign(it, { key: fs2, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -7331,7 +7331,9 @@ var DEFAULTS = {
   warm: {
     enabled: true,
     intervalSeconds: 3e3,
-    maxIdleHours: 5
+    maxIdleHours: 5,
+    excludeModels: [],
+    rearmEveryTurn: false
   }
 };
 var DEFAULT_RAW_THRESHOLDS = {
@@ -7393,38 +7395,24 @@ function loadConfig(cwd) {
   return { contextSize, thresholds, protectClaudeMd, tools, warm };
 }
 
+// src/warm.ts
+var fs2 = __toESM(require("fs"), 1);
+var WARM_PING_SENTINEL = "__cache-warm-ping__";
+function modelExcluded(model, excludeModels) {
+  if (!model) return false;
+  const lower = model.toLowerCase();
+  return excludeModels.some((m) => m && lower.includes(m.toLowerCase()));
+}
+
 // src/session-start-hook.ts
-var PING = "__cache-warm-ping__";
-function buildInstruction(intervalSeconds, maxIdleHours) {
-  const intervalMin = Math.round(intervalSeconds / 60);
-  const maxConsecutivePings = Math.max(
-    1,
-    Math.floor(maxIdleHours * 3600 / intervalSeconds)
-  );
+var PING = WARM_PING_SENTINEL;
+function buildInstruction() {
   return [
-    `[claude-cache] Prompt-cache warming is ENABLED for this session.`,
+    `[claude-cache] Prompt-cache warming is enabled for this session.`,
     ``,
-    `Goal: prevent the Anthropic prompt cache from expiring during idle gaps, so the user's next real prompt is a cache hit instead of a full rebuild. A real assistant turn already refreshes the cache, so we only need a ping when the session has actually gone silent.`,
+    `Arming is automatic: a Stop hook re-arms the idle timer AFTER each of your replies. You do NOT do it yourself \u2014 never proactively call \`ScheduleWakeup\` for cache warming at the end of a normal turn. You will be asked to, explicitly, once your answer has already been delivered; only schedule it then.`,
     ``,
-    `Mechanism \u2014 re-arm an idle timer at the end of every one of your replies in this session:`,
-    ``,
-    `  Call \`ScheduleWakeup\` with:`,
-    `    delaySeconds: ${intervalSeconds}`,
-    `    prompt: ${JSON.stringify(PING)}`,
-    `    reason: "claude-cache: idle-timer refresh"`,
-    ``,
-    `Each new call replaces the previous pending wakeup, so the timer only ever fires after ~${intervalMin} min of silence. If the user keeps chatting, no ping is ever sent.`,
-    ``,
-    `When you DO receive a user message whose entire content is the literal sentinel ${JSON.stringify(PING)} (the timer fired \u2014 true idle), treat it as a heartbeat, not a request:`,
-    `  - Do not analyse, do not read files, do not call any tool other than \`ScheduleWakeup\`.`,
-    `  - Reply with the single token \`ok\`.`,
-    `  - Re-arm by calling \`ScheduleWakeup\` again with the same parameters.`,
-    ``,
-    `Idle cap: stop re-arming once the run of consecutive ${JSON.stringify(PING)} pings (with no real user message between them) would reach ${maxConsecutivePings} \u2014 that corresponds to ~${maxIdleHours} hour(s) of pure idle. To check on each reply: count the trailing ping messages in the transcript since the last real user input. ANY real user message resets that counter \u2014 go back to re-arming normally on the next reply.`,
-    ``,
-    `Also stop if the user says anything like "stop warming", "disable warm", "/warm off", or seems annoyed by the pings. To stop, simply do not call \`ScheduleWakeup\` at the end of that reply \u2014 omitting the call ends the loop.`,
-    ``,
-    `Do this silently: do not announce the wakeup re-arming to the user on every turn. It is bookkeeping.`
+    `If you receive a user message whose entire content is exactly the sentinel ${JSON.stringify(PING)}, that is the idle timer firing \u2014 a heartbeat, not a request. Reply with just \`ok\` and nothing else: no tools, no analysis.`
   ].join("\n");
 }
 async function main() {
@@ -7433,16 +7421,21 @@ async function main() {
     raw += chunk;
   }
   let cwd = process.cwd();
+  let model = "";
   try {
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed.cwd === "string") cwd = parsed.cwd;
+    if (parsed && typeof parsed.model === "string") model = parsed.model;
   } catch {
   }
   const config = loadConfig(cwd);
   if (!config.warm.enabled) {
     process.exit(0);
   }
-  const additionalContext = buildInstruction(config.warm.intervalSeconds, config.warm.maxIdleHours);
+  if (modelExcluded(model, config.warm.excludeModels)) {
+    process.exit(0);
+  }
+  const additionalContext = buildInstruction();
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {

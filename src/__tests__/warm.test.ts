@@ -38,6 +38,8 @@ describe('warm config loading', () => {
       enabled: true,
       intervalSeconds: 3000,
       maxIdleHours: 5,
+      excludeModels: [],
+      rearmEveryTurn: false,
     });
   });
 
@@ -57,6 +59,8 @@ describe('warm config loading', () => {
       enabled: true,
       intervalSeconds: 1800,
       maxIdleHours: 6,
+      excludeModels: [],
+      rearmEveryTurn: false,
     });
   });
 
@@ -86,7 +90,8 @@ describe('session-start-hook output', () => {
     });
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('__cache-warm-ping__');
-    expect(result.stdout).toContain('ScheduleWakeup');
+    // Arming is Stop-hook-driven now; SessionStart tells the model NOT to arm itself.
+    expect(result.stdout).toContain('never proactively call');
     const parsed = JSON.parse(result.stdout);
     expect(parsed.hookSpecificOutput.hookEventName).toBe('SessionStart');
     expect(typeof parsed.hookSpecificOutput.additionalContext).toBe('string');

@@ -25,12 +25,22 @@ protectClaudeMd: true
 #     warnTokens: 20000
 
 # Auto-warm the prompt cache during idle gaps so the next prompt is a cache hit
-# instead of a full rebuild. The assistant re-arms a ScheduleWakeup timer at the
-# end of every reply — real turns already refresh the cache, so a ping only
-# fires after the configured idle interval.
+# instead of a full rebuild. Arming is driven by a Stop hook that runs AFTER each
+# reply is delivered — so the turn-terminating ScheduleWakeup call can never swallow
+# an answer (this is why it is safe for fast models like Fable). A ping only fires
+# after the configured idle interval; real turns already refresh the cache.
 warm:
   enabled: true            # set false to disable
   intervalSeconds: 3000    # ~50 min — stay inside the 1h extended cache TTL
+  # Slide the deadline forward on every turn (never a mid-activity ping) at the cost
+  # of one tiny arming micro-turn per turn. Default false = re-arm only when nothing
+  # is pending (no extra turns while chatting; a marathon session fires one stray
+  # ping that self-corrects).
+  rearmEveryTurn: false
+  # Optional manual override — skip warming when the model matches any entry
+  # (case-insensitive substring of the model id, e.g. "claude-fable-5"). No longer
+  # needed for Fable since arming is post-reply; kept as an escape hatch. Default [].
+  excludeModels: []
   # Cap on consecutive idle hours before we stop re-arming. Any real user turn resets the counter.
   #
   # The pure-arithmetic ceiling (assuming the user ALWAYS returns) is ~15.8h, derived from

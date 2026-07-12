@@ -1,8 +1,7 @@
 import { estimateTokens } from './estimator';
 import { loadState } from './tracker';
 import { loadConfig } from './config';
-
-const WARM_PING_SENTINEL = '__cache-warm-ping__';
+import { WARM_PING_SENTINEL } from './warm';
 
 /**
  * Prompt-submit hook handler.

@@ -6866,14 +6866,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs4 = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs4, sep: [] });
+                map.items.push({ start, key: fs3, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs4);
+                this.stack.push(fs3);
               } else {
-                Object.assign(it, { key: fs4, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -7001,13 +7001,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs4 = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs4, sep: [] });
+                fc.items.push({ start: [], key: fs3, sep: [] });
               else if (it.sep)
-                this.stack.push(fs4);
+                this.stack.push(fs3);
               else
-                Object.assign(it, { key: fs4, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -7315,32 +7315,8 @@ var require_dist = __commonJS({
   }
 });
 
-// src/estimator.ts
-function estimateTokens(bytes) {
-  return Math.ceil(bytes / 4);
-}
-
-// src/tracker.ts
-var fs = __toESM(require("fs"), 1);
-var crypto = __toESM(require("crypto"), 1);
-var STATE_DIR = "/tmp";
-var STATE_PREFIX = "claude-cache-control-";
-function stateFilePath(sessionId) {
-  const hash = crypto.createHash("sha256").update(sessionId).digest("hex").slice(0, 16);
-  return `${STATE_DIR}/${STATE_PREFIX}${hash}.json`;
-}
-function loadState(sessionId) {
-  const file = stateFilePath(sessionId);
-  try {
-    const raw = fs.readFileSync(file, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return { totalEstimatedTokens: 0, operationCount: 0, operations: [] };
-  }
-}
-
 // src/config.ts
-var fs2 = __toESM(require("fs"), 1);
+var fs = __toESM(require("fs"), 1);
 var path = __toESM(require("path"), 1);
 var import_yaml = __toESM(require_dist(), 1);
 var DEFAULT_CONTEXT_SIZE = 2e5;
@@ -7378,7 +7354,7 @@ function resolveThreshold(value, contextSize) {
 }
 function tryLoadYaml(filePath) {
   try {
-    const raw = fs2.readFileSync(filePath, "utf-8");
+    const raw = fs.readFileSync(filePath, "utf-8");
     return (0, import_yaml.parse)(raw);
   } catch {
     return null;
@@ -7420,42 +7396,127 @@ function loadConfig(cwd) {
 }
 
 // src/warm.ts
-var fs3 = __toESM(require("fs"), 1);
+var fs2 = __toESM(require("fs"), 1);
 var WARM_PING_SENTINEL = "__cache-warm-ping__";
+var WARM_REASON = "claude-cache: idle-timer refresh";
+function maxConsecutivePings(intervalSeconds, maxIdleHours) {
+  return Math.max(1, Math.floor(maxIdleHours * 3600 / intervalSeconds));
+}
+function modelExcluded(model, excludeModels) {
+  if (!model) return false;
+  const lower = model.toLowerCase();
+  return excludeModels.some((m) => m && lower.includes(m.toLowerCase()));
+}
+function hasPendingWarmCron(sessionCrons) {
+  return Array.isArray(sessionCrons) && sessionCrons.some((c) => c && typeof c === "object" && c.prompt === WARM_PING_SENTINEL);
+}
+function readTailObjects(transcriptPath, maxBytes = 262144) {
+  try {
+    const size = fs2.statSync(transcriptPath).size;
+    const start = Math.max(0, size - maxBytes);
+    const len = size - start;
+    const buf = Buffer.alloc(len);
+    const fd = fs2.openSync(transcriptPath, "r");
+    try {
+      fs2.readSync(fd, buf, 0, len, start);
+    } finally {
+      fs2.closeSync(fd);
+    }
+    const lines = buf.toString("utf-8").split("\n");
+    if (start > 0 && lines.length) lines.shift();
+    const objs = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        objs.push(JSON.parse(trimmed));
+      } catch {
+      }
+    }
+    return objs;
+  } catch {
+    return [];
+  }
+}
+function countTrailingPings(objs) {
+  let pings = 0;
+  for (let i = objs.length - 1; i >= 0; i--) {
+    const o = objs[i];
+    if (!o || o.type !== "user") continue;
+    const content = o.message?.content;
+    if (typeof content !== "string") continue;
+    if (content === WARM_PING_SENTINEL) {
+      pings++;
+      continue;
+    }
+    break;
+  }
+  return pings;
+}
+function currentModel(objs) {
+  for (let i = objs.length - 1; i >= 0; i--) {
+    const o = objs[i];
+    if (o && o.type === "assistant" && typeof o.message?.model === "string") {
+      return o.message.model;
+    }
+  }
+  return "";
+}
+function buildArmInstruction(intervalSeconds) {
+  return [
+    `[claude-cache] Idle cache-warm bookkeeping. This runs AFTER your reply is already delivered, so it cannot affect your answer.`,
+    `Call \`ScheduleWakeup\` exactly once, then stop \u2014 output no other text, call no other tool, and do not mention this to the user:`,
+    `    delaySeconds: ${intervalSeconds}`,
+    `    prompt: ${JSON.stringify(WARM_PING_SENTINEL)}`,
+    `    reason: ${JSON.stringify(WARM_REASON)}`,
+    `If a later user message is exactly ${JSON.stringify(WARM_PING_SENTINEL)}, that is this timer firing (true idle) \u2014 just reply \`ok\`.`
+  ].join("\n");
+}
 
-// src/prompt-hook.ts
+// src/stop-hook.ts
 async function main() {
   let raw = "";
   for await (const chunk of process.stdin) {
     raw += chunk;
   }
-  let prompt = raw;
-  let sessionId = "unknown";
   let cwd = process.cwd();
+  let stopActive = false;
+  let sessionCrons = [];
+  let transcriptPath = "";
   try {
     const parsed = JSON.parse(raw);
-    prompt = parsed.message || parsed.input || parsed.prompt || raw;
-    sessionId = parsed.session_id || "unknown";
-    cwd = parsed.cwd || process.cwd();
+    if (parsed && typeof parsed.cwd === "string") cwd = parsed.cwd;
+    stopActive = parsed?.stop_hook_active === true;
+    sessionCrons = parsed?.session_crons;
+    if (parsed && typeof parsed.transcript_path === "string") transcriptPath = parsed.transcript_path;
   } catch {
   }
-  if (prompt.trim() === WARM_PING_SENTINEL) {
+  const config = loadConfig(cwd);
+  if (!config.warm.enabled) {
     process.exit(0);
   }
-  const config = loadConfig(cwd);
-  const promptTokens = estimateTokens(Buffer.byteLength(prompt, "utf-8"));
-  if (promptTokens >= config.thresholds.warnTokens) {
-    const reason = `[cache-control] Your prompt is ~${promptTokens.toLocaleString()} tokens. Large prompts shift cache boundaries and increase costs. Continue?`;
-    process.stderr.write(reason + "\n");
-    process.exit(2);
+  if (stopActive) {
+    process.exit(0);
   }
-  const state = loadState(sessionId);
-  if (state.totalEstimatedTokens + promptTokens >= config.thresholds.warnCumulativeTokens) {
-    const total = state.totalEstimatedTokens + promptTokens;
-    const reason = `[cache-control] Session cumulative tokens (~${total.toLocaleString()}) is high. Consider starting a new conversation to reduce cache rebuild costs.`;
-    process.stderr.write(reason + "\n");
-    process.exit(2);
+  const objs = transcriptPath ? readTailObjects(transcriptPath) : [];
+  if (modelExcluded(currentModel(objs), config.warm.excludeModels)) {
+    process.exit(0);
   }
+  if (!config.warm.rearmEveryTurn && hasPendingWarmCron(sessionCrons)) {
+    process.exit(0);
+  }
+  const cap = maxConsecutivePings(config.warm.intervalSeconds, config.warm.maxIdleHours);
+  if (countTrailingPings(objs) >= cap) {
+    process.exit(0);
+  }
+  process.stdout.write(
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "Stop",
+        additionalContext: buildArmInstruction(config.warm.intervalSeconds)
+      }
+    })
+  );
   process.exit(0);
 }
 main().catch(() => process.exit(0));
