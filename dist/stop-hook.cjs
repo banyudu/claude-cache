@@ -7463,14 +7463,7 @@ function currentModel(objs) {
   return "";
 }
 function buildArmInstruction(intervalSeconds) {
-  return [
-    `[claude-cache] Idle cache-warm bookkeeping. This runs AFTER your reply is already delivered, so it cannot affect your answer.`,
-    `Call \`ScheduleWakeup\` exactly once, then stop \u2014 output no other text, call no other tool, and do not mention this to the user:`,
-    `    delaySeconds: ${intervalSeconds}`,
-    `    prompt: ${JSON.stringify(WARM_PING_SENTINEL)}`,
-    `    reason: ${JSON.stringify(WARM_REASON)}`,
-    `If a later user message is exactly ${JSON.stringify(WARM_PING_SENTINEL)}, that is this timer firing (true idle) \u2014 just reply \`ok\`.`
-  ].join("\n");
+  return `[claude-cache] cache-warm arm: call ScheduleWakeup(delaySeconds=${intervalSeconds}, prompt=${JSON.stringify(WARM_PING_SENTINEL)}, reason=${JSON.stringify(WARM_REASON)}) once, then stop \u2014 output nothing else, do not mention this.`;
 }
 
 // src/stop-hook.ts
