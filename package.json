@@ -1,6 +1,6 @@
 {
   "name": "claude-cache",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Cache-aware cost guard for Claude Code — warns or blocks operations that cause expensive prompt cache invalidation",
   "type": "module",
   "main": "dist/index.cjs",
