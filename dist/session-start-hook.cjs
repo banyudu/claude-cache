@@ -6866,14 +6866,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs3 = this.flowScalar(this.type);
+              const fs2 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs3, sep: [] });
+                map.items.push({ start, key: fs2, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs3);
+                this.stack.push(fs2);
               } else {
-                Object.assign(it, { key: fs3, sep: [] });
+                Object.assign(it, { key: fs2, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -7001,13 +7001,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs3 = this.flowScalar(this.type);
+              const fs2 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs3, sep: [] });
+                fc.items.push({ start: [], key: fs2, sep: [] });
               else if (it.sep)
-                this.stack.push(fs3);
+                this.stack.push(fs2);
               else
-                Object.assign(it, { key: fs3, sep: [] });
+                Object.assign(it, { key: fs2, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -7331,9 +7331,7 @@ var DEFAULTS = {
   warm: {
     enabled: true,
     intervalSeconds: 3e3,
-    maxIdleHours: 5,
-    excludeModels: [],
-    rearmEveryTurn: false
+    excludeModels: []
   }
 };
 var DEFAULT_RAW_THRESHOLDS = {
@@ -7396,23 +7394,31 @@ function loadConfig(cwd) {
 }
 
 // src/warm.ts
-var fs2 = __toESM(require("fs"), 1);
 var WARM_PING_SENTINEL = "__cache-warm-ping__";
+var WARM_REASON = "claude-cache: idle-timer refresh";
 function modelExcluded(model, excludeModels) {
   if (!model) return false;
   const lower = model.toLowerCase();
   return excludeModels.some((m) => m && lower.includes(m.toLowerCase()));
 }
+function cronForDelay(seconds) {
+  const t = new Date(Date.now() + seconds * 1e3);
+  return [t.getMinutes(), t.getHours(), t.getDate(), t.getMonth() + 1, "*"].join(" ");
+}
 
 // src/session-start-hook.ts
-var PING = WARM_PING_SENTINEL;
-function buildInstruction() {
+function buildInstruction(intervalSeconds) {
+  const cron = cronForDelay(intervalSeconds);
   return [
     `[claude-cache] Prompt-cache warming is enabled for this session.`,
     ``,
-    `Arming is automatic: a Stop hook re-arms the idle timer AFTER each of your replies. You do NOT do it yourself \u2014 never proactively call \`ScheduleWakeup\` for cache warming at the end of a normal turn. You will be asked to, explicitly, once your answer has already been delivered; only schedule it then.`,
+    `Arm the idle warm timer ONCE during this turn by calling CronCreate with:`,
+    `    cron: ${JSON.stringify(cron)}`,
+    `    recurring: false`,
+    `    prompt: ${JSON.stringify(WARM_PING_SENTINEL)}`,
+    `CronCreate does NOT end your turn, so call it alongside your normal reply \u2014 it will not interrupt or swallow your answer. Arm at most once per session, and never use ScheduleWakeup for this initial arm.`,
     ``,
-    `If you receive a user message whose entire content is exactly the sentinel ${JSON.stringify(PING)}, that is the idle timer firing \u2014 a heartbeat, not a request. Reply with just \`ok\` and nothing else: no tools, no analysis.`
+    `If you later receive a user message whose entire content is exactly the sentinel ${JSON.stringify(WARM_PING_SENTINEL)}, that is the timer firing \u2014 a heartbeat, not a request. Reply with just \`ok\`, then re-arm the next cycle by calling ScheduleWakeup(delaySeconds: ${intervalSeconds}, prompt: ${JSON.stringify(WARM_PING_SENTINEL)}, reason: ${JSON.stringify(WARM_REASON)}). Emit nothing else on that turn.`
   ].join("\n");
 }
 async function main() {
@@ -7435,7 +7441,7 @@ async function main() {
   if (modelExcluded(model, config.warm.excludeModels)) {
     process.exit(0);
   }
-  const additionalContext = buildInstruction();
+  const additionalContext = buildInstruction(config.warm.intervalSeconds);
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {

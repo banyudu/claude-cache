@@ -16,9 +16,7 @@ const DEFAULTS: CacheControlConfig = {
   warm: {
     enabled: true,
     intervalSeconds: 3000,
-    maxIdleHours: 5,
     excludeModels: [],
-    rearmEveryTurn: false,
   },
 };
 

@@ -22,17 +22,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/dist/stop-hook.cjs",
-            "timeout": 5
-          }
-        ]
-      }
     ]
   }
 }

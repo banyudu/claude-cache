@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { loadConfig } from '../config';
+import { cronForDelay } from '../warm';
 
 function makeTmpCwd(yaml?: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cache-warm-'));
@@ -37,9 +38,7 @@ describe('warm config loading', () => {
     expect(cfg.warm).toEqual({
       enabled: true,
       intervalSeconds: 3000,
-      maxIdleHours: 5,
       excludeModels: [],
-      rearmEveryTurn: false,
     });
   });
 
@@ -49,18 +48,16 @@ describe('warm config loading', () => {
     expect(cfg.warm.enabled).toBe(false);
     // unspecified fields fall back to defaults
     expect(cfg.warm.intervalSeconds).toBe(3000);
-    expect(cfg.warm.maxIdleHours).toBe(5);
+    expect(cfg.warm.excludeModels).toEqual([]);
   });
 
-  it('lets a project-level config override interval and maxIdleHours', () => {
-    const cwd = makeTmpCwd('warm:\n  intervalSeconds: 1800\n  maxIdleHours: 6\n');
+  it('lets a project-level config override interval and excludeModels', () => {
+    const cwd = makeTmpCwd('warm:\n  intervalSeconds: 1800\n  excludeModels: ["claude-fable-5"]\n');
     const cfg = loadConfig(cwd);
     expect(cfg.warm).toEqual({
       enabled: true,
       intervalSeconds: 1800,
-      maxIdleHours: 6,
-      excludeModels: [],
-      rearmEveryTurn: false,
+      excludeModels: ['claude-fable-5'],
     });
   });
 
@@ -78,11 +75,29 @@ describe('warm config loading', () => {
   });
 });
 
+describe('cronForDelay', () => {
+  it('returns a 5-field local-time cron ending in *', () => {
+    const cron = cronForDelay(3000);
+    const parts = cron.split(' ');
+    expect(parts).toHaveLength(5);
+    expect(parts[4]).toBe('*');
+    const [min, hour, dom, mon] = parts.map(Number);
+    expect(min).toBeGreaterThanOrEqual(0);
+    expect(min).toBeLessThanOrEqual(59);
+    expect(hour).toBeGreaterThanOrEqual(0);
+    expect(hour).toBeLessThanOrEqual(23);
+    expect(dom).toBeGreaterThanOrEqual(1);
+    expect(dom).toBeLessThanOrEqual(31);
+    expect(mon).toBeGreaterThanOrEqual(1);
+    expect(mon).toBeLessThanOrEqual(12);
+  });
+});
+
 describe('session-start-hook output', () => {
   const hookPath = path.resolve(__dirname, '..', '..', 'dist', 'session-start-hook.cjs');
   const built = fs.existsSync(hookPath);
 
-  it.skipIf(!built)('emits additionalContext when warm is enabled', () => {
+  it.skipIf(!built)('emits the CronCreate-based warm protocol when warm is enabled', () => {
     const cwd = makeTmpCwd();
     const result = spawnSync('node', [hookPath], {
       input: JSON.stringify({ hook_event_name: 'SessionStart', cwd, session_id: 's1' }),
@@ -90,8 +105,9 @@ describe('session-start-hook output', () => {
     });
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('__cache-warm-ping__');
-    // Arming is Stop-hook-driven now; SessionStart tells the model NOT to arm itself.
-    expect(result.stdout).toContain('never proactively call');
+    // Initial arm is a non-terminating CronCreate; re-arm on a fired ping is ScheduleWakeup.
+    expect(result.stdout).toContain('CronCreate');
+    expect(result.stdout).toContain('ScheduleWakeup');
     const parsed = JSON.parse(result.stdout);
     expect(parsed.hookSpecificOutput.hookEventName).toBe('SessionStart');
     expect(typeof parsed.hookSpecificOutput.additionalContext).toBe('string');

@@ -30,18 +30,10 @@ export interface ResolvedThresholds {
 export interface WarmConfig {
   enabled: boolean;
   intervalSeconds: number;
-  maxIdleHours: number;
   // Optional escape hatch: skip warming when the session model matches any entry
-  // (case-insensitive substring of the SessionStart `model`, e.g. "claude-fable-5").
-  // Arming is Stop-hook-driven and happens AFTER the reply, so no model needs this
-  // anymore — kept only as a manual override. Defaults to [] (warm every model).
+  // (case-insensitive substring of the model id, e.g. "claude-fable-5").
+  // Defaults to [] (warm every model).
   excludeModels: string[];
-  // When true, re-arm the idle timer on every Stop (slides the deadline forward so a
-  // ping never fires mid-activity), at the cost of one tiny arming micro-turn per user
-  // turn. When false (default), re-arm only when no cache-warm wakeup is pending — no
-  // extra turns during active chatting; a marathon session past the interval fires one
-  // stray ping that self-corrects.
-  rearmEveryTurn: boolean;
 }
 
 export interface CacheControlConfig {

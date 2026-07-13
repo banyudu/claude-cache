@@ -6866,14 +6866,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs4 = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map.items.push({ start, key: fs4, sep: [] });
+                map.items.push({ start, key: fs3, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs4);
+                this.stack.push(fs3);
               } else {
-                Object.assign(it, { key: fs4, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -7001,13 +7001,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs4 = this.flowScalar(this.type);
+              const fs3 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs4, sep: [] });
+                fc.items.push({ start: [], key: fs3, sep: [] });
               else if (it.sep)
-                this.stack.push(fs4);
+                this.stack.push(fs3);
               else
-                Object.assign(it, { key: fs4, sep: [] });
+                Object.assign(it, { key: fs3, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -7355,9 +7355,7 @@ var DEFAULTS = {
   warm: {
     enabled: true,
     intervalSeconds: 3e3,
-    maxIdleHours: 5,
-    excludeModels: [],
-    rearmEveryTurn: false
+    excludeModels: []
   }
 };
 var DEFAULT_RAW_THRESHOLDS = {
@@ -7420,7 +7418,6 @@ function loadConfig(cwd) {
 }
 
 // src/warm.ts
-var fs3 = __toESM(require("fs"), 1);
 var WARM_PING_SENTINEL = "__cache-warm-ping__";
 
 // src/prompt-hook.ts
